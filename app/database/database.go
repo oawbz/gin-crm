@@ -12,8 +12,8 @@ func init() {
 
 	var err error
 
-	//dsn := "root:7758521@tcp(127.0.0.1:3306)/xmtcrm?charset=utf8mb4&parseTime=True&loc=Local"
-	dsn := "xmtcrm:jxFoygPv3WGSPvrycFAOIE7ZtBdUN93s@tcp(rm-2ze12988qb9ehpcf490130.mysql.rds.aliyuncs.com:3306)/xmtcrm?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:7758521@tcp(127.0.0.1:3306)/xmtcrm?charset=utf8mb4&parseTime=True&loc=Local"
+	//dsn := "xmtcrm:jxFoygPv3WGSPvrycFAOIE7ZtBdUN93s@tcp(rm-2ze12988qb9ehpcf490130.mysql.rds.aliyuncs.com:3306)/xmtcrm?charset=utf8mb4&parseTime=True&loc=Local"
 
 	_db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent), //日志级别
