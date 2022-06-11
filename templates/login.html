@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{.title}}</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <link rel="stylesheet" title="default" href="/assets/sdk/sdk.css"/>
+    <link rel="stylesheet" href="/assets/sdk/helper.css"/>
+    <script src="/assets/sdk/sdk.js"></script>
+    <script src="/assets/sdk/vue@2.js"></script>
+    <script src="/assets/sdk/history.js"></script>
+    <style>
+      html,
+      body,
+      .app-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" class="app-wrapper"></div>
+    <script type="text/javascript">
+      (function () {
+        let amis = amisRequire('amis/embed');
+     
+        let amisJSON = {
+            "type": "container",
+            "style": {
+              "margin-top": "30vh",
+              "margin-left": "30vw",
+              "margin-right": "30vw"
+            },
+            "body": [
+              {
+                "type": "form",
+                "title": "用户登录",
+                "mode": "horizontal",
+                "horizontal": {
+                    "left": 3,
+                    "right": 6,
+                    "offset": 3
+                },
+                "api": "POST:/login",
+                "redirect": "/",
+                "resetAfterSubmit": true,
+                "validateOnChange": true,
+                "body": [
+                  {
+                    "type": "input-text",
+                    "name": "user",
+                    "label": "用户名：",
+                    "required": true
+                  },
+                  {
+                    "type": "input-password",
+                    "name": "password",
+                    "label": "密码：",
+                    "required": true
+                  }
+                  /*
+                  ,
+                  {
+                    "type": "static-image",
+                    "name": "image",
+                    "label": "验证码",
+                    "src": "",
+                    "thumbMode": "contain"
+                  },
+                  {
+                    "type": "input-text",
+                    "name": "code",
+                    "label": "验证码",
+                    "required": true
+                  }
+                  */
+                ]}
+            ]
+          };
+        let amisScoped = amis.embed('#root',amisJSON,{},{theme: 'cxd'});
+      })();
+    </script>
+  </body>
+</html>
