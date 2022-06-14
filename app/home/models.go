@@ -180,3 +180,20 @@ type Body struct {
 	Value    int64  `json:"value" type:"int"`
 	//Formula  string `json:"formula" type:"string"`
 }
+
+type DoctortimeData struct {
+	Syh int `json:"syh" type:"int"`
+}
+
+type newyuedata struct { //新报表
+	Name     string `column:"name" json:"name" type:"string"`
+	Platform string `column:"platform" json:"platform" type:"string"`
+	Phone    int    `column:"phone" json:"phone" type:"int"`
+	Reserve  int64  `column:"reserve" json:"reserve" type:"int"`
+	Arrive   int64  `column:"arrive" json:"arrive" type:"string"`
+}
+type newyuedatas struct { //新报表统计结果
+	Phone    int    `column:"phone" json:"phone" type:"int"`
+	Reserve  int64  `column:"reserve" json:"reserve" type:"int"`
+	Arrive   int64  `column:"arrive" json:"arrive" type:"string"`
+}

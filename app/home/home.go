@@ -38,7 +38,28 @@ func Authorize() gin.HandlerFunc {
 		}
 	}
 }
+func doctortime(c *gin.Context) { //医生日期查询
+	s, _ := strconv.ParseInt(c.Query("s"), 10, 64) //预约时间
+	s3 := time.Date(time.Unix(s, 0).In(cstSh).Year(), time.Unix(s, 0).In(cstSh).Month(), time.Unix(s, 0).In(cstSh).Day(), 0, 0, 0, 0, time.Unix(s, 0).In(cstSh).Location()).Unix()
+	zhou := time.Unix(s3, 0).In(cstSh).Weekday()
 
+	//fmt.Println(s3)
+
+	var kcsl int64
+	var sysl int64
+	Db.Table("crm_doctor").Select(common.Txt(zhou)).Where("id = ?", c.Query("d")).Where("state = 1").Take(&kcsl)
+	Db.Table("crm_customer_reserve").Select("COUNT(`id`)").Where("doctor = ?", c.Query("d")).Where("visit_time >= ?", s3).Where("visit_time <= ?", s3+60*60*24).Take(&sysl)
+	data := map[string]interface{}{"syh": kcsl - sysl}
+	if c.Query("s") == "" {
+		data["syh"] = 0
+	}
+	c.AsciiJSON(http.StatusOK, gin.H{
+		"status": 0,
+		"msg":    "医生排期",
+		"data":   data,
+	})
+
+}
 func automaticallocation(c *gin.Context) { //自动分配
 	session := sessions.Default(c)
 	usergroups := usergroup(common.Txt(session.Get("UserName")))
@@ -53,7 +74,7 @@ func automaticallocation(c *gin.Context) { //自动分配
 		var zs int64
 		c.ShouldBindJSON(&zdfpcc)
 		for k, v := range zdfpcc {
-			if k != "countlist" && v != 0 {
+			if k != "countlist" && k != "doctor" && v != 0 {
 				zs = zs + v
 			}
 		}
@@ -62,12 +83,17 @@ func automaticallocation(c *gin.Context) { //自动分配
 			return
 		}
 		for k, v := range zdfpcc {
-			if k != "countlist" && v != 0 {
+			//fmt.Println(zdfpcc["doctor"]) //医生id
+			if k != "countlist" && k != "doctor" && v != 0 {
 				y1 := strings.Replace(k, "user", "", 1)
 				var fenpeilist []int64
-
-				Db.Table("crm_customer").Select("id").Where("consultuser = 0").Where("project = ?", usergroups).Limit(int(common.ToInt(v))).Find(&fenpeilist) //列表
+				if zdfpcc["doctor"] == 0 {
+					Db.Table("crm_customer").Select("id").Where("consultuser = 0").Where("project = ?", usergroups).Limit(int(common.ToInt(v))).Find(&fenpeilist) //列表
+				} else {
+					Db.Table("crm_customer").Select("id").Where("consultuser = 0").Where("doctor = ?", zdfpcc["doctor"]).Where("project = ?", usergroups).Limit(int(common.ToInt(v))).Find(&fenpeilist) //列表
+				}
 				Db.Table("crm_customer").Where("consultuser = 0").Where("id IN ?", fenpeilist).Update("consultuser", y1)
+				///
 			}
 		}
 		c.JSON(http.StatusOK, gin.H{"status": 0, "msg": "分配成功"})
@@ -76,8 +102,23 @@ func automaticallocation(c *gin.Context) { //自动分配
 
 	var userlist []map[string]interface{}
 	Db.Table("crm_user").Select("id,nick").Where("`state` = 1").Where("`allow`= 4").Where("`group` = ?", usergroups).Find(&userlist) //列表
-	var count int64
-	Db.Table("crm_customer").Select("id").Where("consultuser = 0").Where("project = ?", usergroups).Count(&count) //列表
+	var counts int64
+	if c.Query("d") != "" {
+		Db.Table("crm_customer").Select("id").Where("doctor = ?", c.Query("d")).Where("consultuser = 0").Where("project = ?", usergroups).Count(&counts) //列表
+	} else {
+		Db.Table("crm_customer").Select("id").Where("consultuser = 0").Where("project = ?", usergroups).Count(&counts) //列表
+	}
+
+	if c.Query("s") == "1" {
+		datakc := map[string]interface{}{"countlist": counts}
+		c.AsciiJSON(http.StatusOK, gin.H{
+			"status": 0,
+			"msg":    "可分配数量",
+			"data":   datakc,
+		})
+		return
+	}
+
 	var body []Body
 
 	for _, v := range userlist {
@@ -96,7 +137,7 @@ func automaticallocation(c *gin.Context) { //自动分配
 		Label:    "可分配数量",
 		Lequired: true,
 		Disabled: true,
-		Value:    count,
+		Value:    counts,
 	})
 
 	////
@@ -107,8 +148,6 @@ func automaticallocation(c *gin.Context) { //自动分配
 func navigation(c *gin.Context) { //系统菜单
 	session := sessions.Default(c)
 	uall := userallow(common.Txt(session.Get("UserName")))
-
-	//fmt.Println(c.GetHeader("Accept"))
 
 	var navigation []navigationMode
 	var nav struct {
@@ -1042,6 +1081,46 @@ func dictionary(c *gin.Context) { //客户字典
 
 }
 
+///////////
+
+func newbaobiao(s1, s2, startTime, endTime int64) newyuedatas { //新报表数据
+	var newyuedatas1 newyuedatas
+	//fmt.Println("开始时间", startTime, "结束时间", endTime)
+	//fmt.Println("医生ID", s1, "平台id", s2)
+	//newyuedatas1.Phone = 20   //套电数量
+	Db.Table("crm_customer").Select("COUNT(`id`)").Where("`doctor` = ?", s1).Where("platform = ?", s2).Where("addtime >= ?", startTime).Where("addtime <= ?", endTime).Find(&newyuedatas1.Phone)
+	//newyuedatas1.Reserve = 30 //预约数量
+	/*
+		var list []map[string]interface{}
+		ss := Db.Table("crm_customer_reserve")
+
+		ss = ss.Joins("left join crm_customer on crm_customer_reserve.customerid =crm_customer.id")
+		ss = ss.Select("crm_customer_reserve.id as id,crm_customer_reserve.doctor as doctor ,crm_customer_reserve.addtime as addtime")
+		ss = ss.Where("`doctor` = ?", s1).Where("addtime >= ?", startTime).Where("crm_customer_reserve.addtime <= ?", endTime)
+		ss = ss.Find(&list)
+	*/
+	var project []map[string]interface{}
+	da := Db.Table("crm_customer_reserve")
+	da.Joins("left join crm_customer on crm_customer_reserve.customerid =crm_customer.id")
+	da.Select("crm_customer_reserve.id as id,crm_customer_reserve.doctor as doctor,crm_customer_reserve.addtime as addtime,crm_customer.platform as platform")
+	da.Where("crm_customer_reserve.doctor = ?", s1).Where("crm_customer.platform = ?", s2).Where("crm_customer_reserve.addtime >= ?", startTime).Where("crm_customer_reserve.addtime <= ?", endTime)
+	da.Find(&project)
+	newyuedatas1.Reserve = common.ToInt(len(project))
+	//fmt.Println(len(project))
+	//Db.Table("crm_customer_reserve").Select("COUNT(`id`)").Joins("left join crm_customer on crm_customer_reserve.customerid =crm_customer.id").Where("`doctor` = ?", s1).Where("addtime >= ?", startTime).Where("addtime <= ?", endTime).Find(&newyuedatas1.Reserve)
+	//newyuedatas1.Arrive = 40 //到诊数量
+	var project2 []map[string]interface{}
+	da2 := Db.Table("crm_customer_reserve")
+	da2.Joins("left join crm_customer on crm_customer_reserve.customerid =crm_customer.id")
+	da2.Select("crm_customer_reserve.id as id,crm_customer_reserve.state as state,crm_customer_reserve.doctor as doctor,crm_customer_reserve.addtime as addtime,crm_customer.platform as platform")
+	da2.Where("crm_customer_reserve.doctor = ?", s1).Where("crm_customer.platform = ?", s2).Where("crm_customer_reserve.addtime >= ?", startTime).Where("crm_customer_reserve.addtime <= ?", endTime).Where("crm_customer_reserve.state = 2")
+	da2.Find(&project2)
+	newyuedatas1.Arrive = common.ToInt(len(project2))
+	//Db.Table("crm_customer_reserve").Select("COUNT(`id`)").Where("`state` = 2").Where("`doctor` = ?", s1).Where("addtime >= ?", startTime).Where("addtime <= ?", endTime).Find(&newyuedatas1.Arrive)
+
+	return newyuedatas1
+}
+
 //////////
 func statistics(c *gin.Context) { //统计
 	session := sessions.Default(c)
@@ -1051,6 +1130,81 @@ func statistics(c *gin.Context) { //统计
 	if userallow > 3 {
 		c.AsciiJSON(http.StatusOK, gin.H{"status": 1, "msg": "系统错误"})
 		return
+	}
+	if c.Query("c") == "newlist" { //新统计
+		var zu string
+		if userallow == 1 && c.Query("selectgroup") != "" { //判定小组
+			zu = c.Query("selectgroup")
+		} else {
+			zu = common.Txt(ugroup)
+		}
+		var startTime int64
+		var endTime int64
+		if c.Query("startTime") != "" && c.Query("endTime") != "" {
+			startTime = common.ToInt(c.Query("startTime"))
+			endTime = common.ToInt(c.Query("endTime"))
+		} else {
+			startTime = time.Now().Unix() - 60*60*24
+			endTime = time.Now().Unix()
+		}
+
+		var zuysid string
+		var zuptid string
+		//var yslb []map[string]interface{}
+
+		Db.Table("crm_project").Select("doctorlist").Where("id = ?", zu).Take(&zuysid)
+		Db.Table("crm_project").Select("platformlist").Where("id = ?", zu).Take(&zuptid)
+		var yuedatalist []newyuedata
+		for _, v := range strings.Split(zuysid, ",") {
+			var doctorname string
+			Db.Table("crm_doctor").Select("name").Where("id = ?", v).Take(&doctorname)
+			if c.Query("selectplatform") == "" {
+				for _, vzu := range strings.Split(zuptid, ",") {
+					var zuname string
+					Db.Table("crm_platform").Select("name").Where("id = ?", vzu).Take(&zuname)
+
+					bb1 := newbaobiao(common.ToInt(v), common.ToInt(vzu), startTime, endTime)
+					yuedatalist = append(yuedatalist, newyuedata{
+						Name:     doctorname,
+						Platform: zuname,
+						Phone:    bb1.Phone,
+						Reserve:  bb1.Reserve,
+						Arrive:   bb1.Arrive,
+					})
+				}
+			} else {
+				var zuname string
+				Db.Table("crm_platform").Select("name").Where("id = ?", c.Query("selectplatform")).Take(&zuname)
+
+				//fmt.Println(v, doctorname, common.ToInt(c.Query("selectplatform")), zuname)
+				bb1 := newbaobiao(common.ToInt(v), common.ToInt(c.Query("selectplatform")), startTime, endTime)
+				yuedatalist = append(yuedatalist, newyuedata{
+					Name:     doctorname,
+					Platform: zuname,
+					Phone:    bb1.Phone,
+					Reserve:  bb1.Reserve,
+					Arrive:   bb1.Arrive,
+				})
+
+			}
+
+		}
+
+		//var startTime int64
+		//var endTime int64
+		var data list
+		data.Count = common.ToInt(len(yuedatalist))
+		data.Rows = yuedatalist
+		if data.Count == 0 {
+			c.Writer.Header().Set("Content-Type", "application/json")
+			c.String(http.StatusOK, `{"data":{"count":0,"rows":[]},"msg":"ok","status":0}`)
+		} else {
+			c.AsciiJSON(http.StatusOK, gin.H{"status": 0, "data": data, "msg": "新统计"})
+		}
+		return
+
+		//c.AsciiJSON(http.StatusOK, gin.H{"status": 0, "msg": "新统计"})
+		//return
 	}
 	//uid := userid(common.Txt(session.Get("UserName")))
 	if c.Query("c") == "moonlist" {

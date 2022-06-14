@@ -67,6 +67,8 @@ func ApiGet(c *gin.Context) {
 		reserve(c)
 	case "statistics": //统计
 		statistics(c)
+	case "doctortime": //统计
+		doctortime(c)
 
 	default:
 		c.JSON(http.StatusOK, gin.H{"status": 1, "msg": "404"})
